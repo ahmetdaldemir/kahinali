@@ -1,0 +1,4 @@
+2025-07-15 10:09:46,582 - __main__ - INFO - Tüm geçmiþ sinyaller veritabanýndan siliniyor...
+2025-07-15 10:09:46,871 - modules.signal_manager - INFO - PostgreSQL veritabaný tablolarý oluþturuldu.
+2025-07-15 10:09:46,878 - modules.signal_manager - INFO - Tüm sinyaller veritabanýndan silindi.
+2025-07-15 10:09:46,878 - __main__ - INFO - Tüm geçmiþ sinyaller silindi.

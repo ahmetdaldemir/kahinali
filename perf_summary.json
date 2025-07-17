@@ -1,0 +1,34 @@
+﻿
+
+StatusCode        : 200
+StatusDescription : OK
+Content           : {
+                      "daily_performance": [
+                        {
+                          "date": "Fri, 04 Jul 2025 00:00:00 GMT",
+                          "signal_count": 1,
+                          "success_rate": 100.0,
+                          "total_gain": 0.0
+                        }
+                      ],
+                      "last_updated": "2025-07-05 1...
+RawContent        : HTTP/1.1 200 OK
+                    Access-Control-Allow-Origin: *
+                    Connection: close
+                    Content-Length: 2592
+                    Content-Type: application/json
+                    Date: Sat, 05 Jul 2025 10:53:44 GMT
+                    Server: Werkzeug/3.1.3 Python/3.11.9
+                    
+                    {...
+Forms             : {}
+Headers           : {[Access-Control-Allow-Origin, *], [Connection, close], [Content-Length, 2592], [Conten
+                    t-Type, application/json]...}
+Images            : {}
+InputFields       : {}
+Links             : {}
+ParsedHtml        : mshtml.HTMLDocumentClass
+RawContentLength  : 2592
+
+
+

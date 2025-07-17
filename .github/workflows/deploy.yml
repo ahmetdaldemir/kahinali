@@ -56,9 +56,9 @@ jobs:
           # Bağımlılıkları yükle
           pip install -r requirements.txt
           
-          # Eski process'leri durdur
-          sudo systemctl stop kahinali.service || true
-          pkill -f "python.*main.py" || true
+          # Eski process'leri durdur (hata vermesin)
+          sudo systemctl stop kahinali.service 2>/dev/null || true
+          pkill -f "python.*main.py" 2>/dev/null || true
           
           # Systemd service dosyası oluştur
           sudo tee /etc/systemd/system/kahinali.service > /dev/null <<EOF
@@ -74,6 +74,8 @@ jobs:
           ExecStart=/var/www/html/kahin/kahinali/venv/bin/python main.py
           Restart=always
           RestartSec=10
+          StandardOutput=journal
+          StandardError=journal
           
           [Install]
           WantedBy=multi-user.target
@@ -85,13 +87,16 @@ jobs:
           sudo systemctl start kahinali.service
           
           # Servisin durumunu kontrol et
-          sleep 10
+          sleep 15
           if sudo systemctl is-active --quiet kahinali.service; then
-            echo "Deployment successful! Kahinali service is running."
+            echo "✅ Deployment successful! Kahinali service is running."
             sudo systemctl status kahinali.service
+            echo "📊 Service logs:"
+            sudo journalctl -u kahinali.service -n 10
           else
-            echo "Deployment failed! Service is not running."
+            echo "❌ Deployment failed! Service is not running."
             sudo systemctl status kahinali.service
+            echo "📋 Recent logs:"
             sudo journalctl -u kahinali.service -n 20
             exit 1
           fi 

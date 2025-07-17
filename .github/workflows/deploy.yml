@@ -1,0 +1,85 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: 185.209.228.189
+        username: root
+        password: '@198711Ad@'
+        port: 22
+        script: |
+          # Sunucuda proje dizinine git
+          cd /var/www/html/kahin/kahinali
+          
+          # Git pull ile güncellemeleri çek
+          git pull origin main
+          
+          # Python virtual environment oluştur/aktifleştir
+          python3 -m venv venv
+          source venv/bin/activate
+          
+          # Bağımlılıkları yükle
+          pip install -r requirements.txt
+          
+          # Eski process'leri durdur
+          sudo systemctl stop kahinali.service || true
+          pkill -f "python.*main.py" || true
+          
+          # Systemd service dosyası oluştur
+          sudo tee /etc/systemd/system/kahinali.service > /dev/null <<EOF
+          [Unit]
+          Description=Kahinali Trading Bot
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=kahin
+          WorkingDirectory=/hvar/www/html/kahin/kahinali
+          Environment=PATH=/var/www/html/kahin/kahinali/venv/bin
+          ExecStart=/var/www/html/kahin/kahinali/venv/bin/python main.py
+          Restart=always
+          RestartSec=10
+          
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          
+          # Systemd'yi yeniden yükle ve servisi başlat
+          sudo systemctl daemon-reload
+          sudo systemctl enable kahinali.service
+          sudo systemctl start kahinali.service
+          
+          # Servisin durumunu kontrol et
+          sleep 10
+          if sudo systemctl is-active --quiet kahinali.service; then
+            echo "Deployment successful! Kahinali service is running."
+            sudo systemctl status kahinali.service
+          else
+            echo "Deployment failed! Service is not running."
+            sudo systemctl status kahinali.service
+            sudo journalctl -u kahinali.service -n 20
+            exit 1
+          fi 

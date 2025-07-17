@@ -18,11 +18,6 @@ jobs:
       with:
         python-version: '3.11'
         
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        
     - name: Deploy to kahinapp.com
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -31,37 +26,35 @@ jobs:
         password: '@198711Ad@'
         port: 22
         script: |
-          # Ana dizine geç
-          sudo mkdir -p /var/www/html/kahin
           cd /var/www/html/kahin
-          
-          # Eğer .git yoksa klonla, varsa pull yap
+
           if [ ! -d ".git" ]; then
+            echo "[INFO] .git yok, dizin temizleniyor ve klonlanıyor."
+            rm -rf ./*
             git clone https://github.com/ahmetdaldemir/kahinali.git .
           else
+            echo "[INFO] .git bulundu, güncelleniyor."
             git pull origin main
           fi
-          
-          # Python virtual environment oluştur/aktifleştir
+
+          if [ ! -f requirements.txt ]; then
+            echo "[ERROR] requirements.txt bulunamadı!"
+            exit 1
+          fi
+
           python3 -m venv venv
           source venv/bin/activate
-          
-          # Pip'i güncelle
           python3 -m pip install --upgrade pip
-          
-          # Bağımlılıkları yükle
           pip install -r requirements.txt
-          
-          # Eski process'leri durdur (hata vermesin)
+
           sudo systemctl stop kahinali.service 2>/dev/null || true
           pkill -f "python.*main.py" 2>/dev/null || true
-          
-          # Systemd service dosyası oluştur
+
           sudo tee /etc/systemd/system/kahinali.service > /dev/null <<EOF
           [Unit]
           Description=Kahinali Trading Bot for kahinapp.com
           After=network.target
-          
+
           [Service]
           Type=simple
           User=root
@@ -72,17 +65,15 @@ jobs:
           RestartSec=10
           StandardOutput=journal
           StandardError=journal
-          
+
           [Install]
           WantedBy=multi-user.target
           EOF
-          
-          # Systemd'yi yeniden yükle ve servisi başlat
+
           sudo systemctl daemon-reload
           sudo systemctl enable kahinali.service
           sudo systemctl start kahinali.service
-          
-          # Servisin durumunu kontrol et
+
           sleep 15
           if sudo systemctl is-active --quiet kahinali.service; then
             echo "✅ Deployment successful! Kahinali service is running on kahinapp.com"

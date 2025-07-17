@@ -31,20 +31,16 @@ jobs:
         password: '@198711Ad@'
         port: 22
         script: |
-          # Kahinapp.com için proje dizinini oluştur
+          # Ana dizine geç
           sudo mkdir -p /var/www/html/kahin
           cd /var/www/html/kahin
           
-          # Eğer dizin yoksa git clone yap
-          if [ ! -d "kahinali" ]; then
-            git clone https://github.com/ahmetdaldemir/kahinali.git
+          # Eğer .git yoksa klonla, varsa pull yap
+          if [ ! -d ".git" ]; then
+            git clone https://github.com/ahmetdaldemir/kahinali.git .
+          else
+            git pull origin main
           fi
-          
-          # Proje dizinine git
-          cd kahinali
-          
-          # Git pull ile güncellemeleri çek
-          git pull origin main
           
           # Python virtual environment oluştur/aktifleştir
           python3 -m venv venv
@@ -69,9 +65,9 @@ jobs:
           [Service]
           Type=simple
           User=root
-          WorkingDirectory=/var/www/html/kahin/kahinali
-          Environment=PATH=/var/www/html/kahin/kahinali/venv/bin
-          ExecStart=/var/www/html/kahin/kahinali/venv/bin/python main.py
+          WorkingDirectory=/var/www/html/kahin
+          Environment=PATH=/var/www/html/kahin/venv/bin
+          ExecStart=/var/www/html/kahin/venv/bin/python main.py
           Restart=always
           RestartSec=10
           StandardOutput=journal

@@ -32,7 +32,8 @@ except ImportError:
 app = Flask(__name__)
 CORS(app)
 app.secret_key = Config.FLASK_SECRET_KEY
-
+app.static_url_path="/kahinali/static",  # Çok önemli!
+app.static_folder="static"
 signal_manager = SignalManager()
 performance_analyzer = PerformanceAnalyzer()
 

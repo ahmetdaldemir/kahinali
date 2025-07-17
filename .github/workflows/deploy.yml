@@ -26,13 +26,22 @@ jobs:
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: 185.209.228.189
-        username: root
-        password: '@198711Ad@'
-        port: 22
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        password: ${{ secrets.PASSWORD }}
+        port: ${{ secrets.PORT }}
         script: |
-          # Sunucuda proje dizinine git
-          cd /var/www/html/kahin/kahinali
+          # Sunucuda proje dizinini oluştur
+          sudo mkdir -p /var/www/html/kahin
+          cd /var/www/html/kahin
+          
+          # Eğer dizin yoksa git clone yap
+          if [ ! -d "kahinali" ]; then
+            git clone https://github.com/ahmetdaldemir/kahinali.git
+          fi
+          
+          # Proje dizinine git
+          cd kahinali
           
           # Git pull ile güncellemeleri çek
           git pull origin main
@@ -40,6 +49,9 @@ jobs:
           # Python virtual environment oluştur/aktifleştir
           python3 -m venv venv
           source venv/bin/activate
+          
+          # Pip'i güncelle
+          python3 -m pip install --upgrade pip
           
           # Bağımlılıkları yükle
           pip install -r requirements.txt
@@ -56,8 +68,8 @@ jobs:
           
           [Service]
           Type=simple
-          User=kahin
-          WorkingDirectory=/hvar/www/html/kahin/kahinali
+          User=root
+          WorkingDirectory=/var/www/html/kahin/kahinali
           Environment=PATH=/var/www/html/kahin/kahinali/venv/bin
           ExecStart=/var/www/html/kahin/kahinali/venv/bin/python main.py
           Restart=always

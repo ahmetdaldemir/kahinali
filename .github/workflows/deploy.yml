@@ -26,10 +26,10 @@ jobs:
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        password: ${{ secrets.PASSWORD }}
-        port: ${{ secrets.PORT }}
+        host: 185.209.228.189
+        username: root
+        password: '@198711Ad@'
+        port: 22
         script: |
           # Sunucuda proje dizinini oluştur
           sudo mkdir -p /var/www/html/kahin

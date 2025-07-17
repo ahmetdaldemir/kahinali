@@ -41,7 +41,7 @@ jobs:
           fi
           
           # Proje dizinine git
-          cd kahinali
+          cd kahin
           
           # Git pull ile güncellemeleri çek
           git pull origin main
@@ -69,9 +69,9 @@ jobs:
           [Service]
           Type=simple
           User=root
-          WorkingDirectory=/var/www/html/kahin/kahinali
-          Environment=PATH=/var/www/html/kahin/kahinali/venv/bin
-          ExecStart=/var/www/html/kahin/kahinali/venv/bin/python main.py
+          WorkingDirectory=/var/www/html/kahin
+          Environment=PATH=/var/www/html/kahin/venv/bin
+          ExecStart=/var/www/html/kahin/venv/bin/python main.py
           Restart=always
           RestartSec=10
           StandardOutput=journal

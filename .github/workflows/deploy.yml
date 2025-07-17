@@ -1,4 +1,4 @@
-name: Deploy to Server
+name: Deploy to Kahinapp.com
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
-    - name: Deploy to server
+    - name: Deploy to kahinapp.com
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: 185.209.228.189
@@ -31,7 +31,7 @@ jobs:
         password: '@198711Ad@'
         port: 22
         script: |
-          # Sunucuda proje dizinini oluştur
+          # Kahinapp.com için proje dizinini oluştur
           sudo mkdir -p /var/www/html/kahin
           cd /var/www/html/kahin
           
@@ -41,7 +41,7 @@ jobs:
           fi
           
           # Proje dizinine git
-          cd kahin
+          cd kahinali
           
           # Git pull ile güncellemeleri çek
           git pull origin main
@@ -63,15 +63,15 @@ jobs:
           # Systemd service dosyası oluştur
           sudo tee /etc/systemd/system/kahinali.service > /dev/null <<EOF
           [Unit]
-          Description=Kahinali Trading Bot
+          Description=Kahinali Trading Bot for kahinapp.com
           After=network.target
           
           [Service]
           Type=simple
           User=root
-          WorkingDirectory=/var/www/html/kahin
-          Environment=PATH=/var/www/html/kahin/venv/bin
-          ExecStart=/var/www/html/kahin/venv/bin/python main.py
+          WorkingDirectory=/var/www/html/kahin/kahinali
+          Environment=PATH=/var/www/html/kahin/kahinali/venv/bin
+          ExecStart=/var/www/html/kahin/kahinali/venv/bin/python main.py
           Restart=always
           RestartSec=10
           StandardOutput=journal
@@ -89,7 +89,7 @@ jobs:
           # Servisin durumunu kontrol et
           sleep 15
           if sudo systemctl is-active --quiet kahinali.service; then
-            echo "✅ Deployment successful! Kahinali service is running."
+            echo "✅ Deployment successful! Kahinali service is running on kahinapp.com"
             sudo systemctl status kahinali.service
             echo "📊 Service logs:"
             sudo journalctl -u kahinali.service -n 10

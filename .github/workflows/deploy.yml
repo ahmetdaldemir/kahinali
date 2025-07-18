@@ -1,4 +1,4 @@
-name: Deploy to Kahinapp.com
+name: Deploy to Server
 
 on:
   push:
@@ -10,80 +10,76 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-        
-    - name: Deploy to kahinapp.com
-      uses: appleboy/ssh-action@v1.0.3
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v0.1.5
       with:
         host: 185.209.228.189
         username: root
         password: '@198711Ad@'
         port: 22
         script: |
-          cd /var/www/html/kahin
-
-          if [ ! -d ".git" ]; then
-            echo "[INFO] .git yok, dizin temizleniyor ve klonlanıyor."
-            rm -rf ./*
-            git clone https://github.com/ahmetdaldemir/kahinali.git .
-          else
-            echo "[INFO] .git bulundu, güncelleniyor."
-            git pull origin main
-          fi
-
-          if [ ! -f requirements.txt ]; then
-            echo "[ERROR] requirements.txt bulunamadı!"
-            exit 1
-          fi
-
-          python3 -m venv venv
+          # Sistem güncellemesi
+          apt update -y
+          apt upgrade -y
+          
+          # Python 3.11 kurulumu
+          apt install -y python3.11 python3.11-venv python3.11-pip python3.11-dev
+          
+          # Git kurulumu
+          apt install -y git
+          
+          # PostgreSQL kurulumu
+          apt install -y postgresql postgresql-contrib
+          systemctl start postgresql
+          systemctl enable postgresql
+          
+          # Proje dizini oluşturma
+          mkdir -p /var/www/html
+          cd /var/www/html
+          
+          # Mevcut projeyi sil ve yeniden klonla
+          rm -rf kahin
+          git clone https://github.com/ahmetdaldemir/kahinali.git kahin
+          cd kahin
+          
+          # Virtual environment oluştur
+          python3.11 -m venv venv
           source venv/bin/activate
-          python3 -m pip install --upgrade pip
+          
+          # Bağımlılıkları yükle
+          pip install --upgrade pip
           pip install -r requirements.txt
-
-          sudo systemctl stop kahinali.service 2>/dev/null || true
-          pkill -f "python.*main.py" 2>/dev/null || true
-
-          sudo tee /etc/systemd/system/kahinali.service > /dev/null <<EOF
-          [Unit]
-          Description=Kahinali Trading Bot for kahinapp.com
-          After=network.target
-
-          [Service]
-          Type=simple
-          User=root
-          WorkingDirectory=/var/www/html/kahin
-          Environment=PATH=/var/www/html/kahin/venv/bin
-          ExecStart=/var/www/html/kahin/venv/bin/python main.py
-          Restart=always
-          RestartSec=10
-          StandardOutput=journal
-          StandardError=journal
-
-          [Install]
-          WantedBy=multi-user.target
-          EOF
-
-          sudo systemctl daemon-reload
-          sudo systemctl enable kahinali.service
-          sudo systemctl start kahinali.service
-
-          sleep 15
-          if sudo systemctl is-active --quiet kahinali.service; then
-            echo "✅ Deployment successful! Kahinali service is running on kahinapp.com"
-            sudo systemctl status kahinali.service
-            echo "📊 Service logs:"
-            sudo journalctl -u kahinali.service -n 10
-          else
-            echo "❌ Deployment failed! Service is not running."
-            sudo systemctl status kahinali.service
-            echo "📋 Recent logs:"
-            sudo journalctl -u kahinali.service -n 20
-            exit 1
-          fi 
+          
+          # PostgreSQL konfigürasyonu
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD '3010726904';"
+          sudo -u postgres psql -c "CREATE DATABASE kahin_ultima;"
+          sudo -u postgres psql -c "CREATE USER laravel WITH PASSWORD 'secret';"
+          sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE kahin_ultima TO laravel;"
+          sudo -u postgres psql -c "ALTER USER laravel CREATEDB;"
+          
+          # Gerekli dizinleri oluştur
+          mkdir -p logs signals data models
+          
+          # Systemd service dosyalarını kopyala
+          cp kahinali.service /etc/systemd/system/
+          cp kahinali-web.service /etc/systemd/system/
+          
+          # Systemd'yi yeniden yükle
+          systemctl daemon-reload
+          
+          # Servisleri etkinleştir ve başlat
+          systemctl enable kahinali.service
+          systemctl enable kahinali-web.service
+          systemctl start kahinali.service
+          systemctl start kahinali-web.service
+          
+          # Servis durumlarını kontrol et
+          systemctl status kahinali.service
+          systemctl status kahinali-web.service
+          
+          # Firewall ayarları
+          ufw allow 5000
+          ufw allow 22
+          ufw --force enable
+          
+          echo "Deployment completed successfully!" 

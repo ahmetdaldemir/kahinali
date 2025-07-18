@@ -1,191 +1,192 @@
 #!/usr/bin/env python3
-"""
-PostgreSQL Kurulum ve Yapılandırma Scripti
-KAHİN Ultima için PostgreSQL veritabanını kurar ve yapılandırır.
-"""
+# -*- coding: utf-8 -*-
 
 import os
-import sys
 import subprocess
+import sys
 import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+from sqlalchemy import create_engine, text
 from config import Config
+import logging
 
-def check_postgresql_installed():
-    """PostgreSQL'in kurulu olup olmadığını kontrol et"""
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def run_command(command, description):
+    """Komut çalıştır ve sonucu logla"""
     try:
-        result = subprocess.run(['psql', '--version'], 
-                              capture_output=True, text=True, check=True)
-        print(f"✅ PostgreSQL kurulu: {result.stdout.strip()}")
+        logger.info(f"Çalıştırılıyor: {description}")
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode == 0:
+            logger.info(f"✅ {description} başarılı")
+            if result.stdout:
+                logger.info(f"Çıktı: {result.stdout}")
+        else:
+            logger.error(f"❌ {description} başarısız: {result.stderr}")
+            return False
         return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print("❌ PostgreSQL kurulu değil!")
+    except Exception as e:
+        logger.error(f"❌ {description} hatası: {e}")
         return False
 
 def install_postgresql():
-    """PostgreSQL'i kur (Windows için)"""
-    print("📦 PostgreSQL kurulumu başlatılıyor...")
+    """PostgreSQL kurulumu"""
+    commands = [
+        ("sudo apt update", "Sistem güncellemesi"),
+        ("sudo apt install -y postgresql postgresql-contrib", "PostgreSQL kurulumu"),
+        ("sudo systemctl start postgresql", "PostgreSQL servisi başlatma"),
+        ("sudo systemctl enable postgresql", "PostgreSQL servisi otomatik başlatma"),
+        ("sudo systemctl status postgresql", "PostgreSQL durumu kontrol")
+    ]
     
-    # Windows için PostgreSQL kurulum linki
-    download_url = "https://www.postgresql.org/download/windows/"
-    print(f"🔗 PostgreSQL'i şu adresten indirin: {download_url}")
-    print("📋 Kurulum adımları:")
-    print("   1. PostgreSQL installer'ı indirin")
-    print("   2. Kurulum sırasında şu ayarları yapın:")
-    print(f"      - Port: {Config.POSTGRES_PORT}")
-    print(f"      - Superuser: {Config.POSTGRES_USER}")
-    print(f"      - Password: {Config.POSTGRES_PASSWORD}")
-    print("   3. Kurulum tamamlandıktan sonra bu scripti tekrar çalıştırın")
-    
-    return False
+    for command, description in commands:
+        if not run_command(command, description):
+            return False
+    return True
 
-def create_database():
-    """Veritabanını oluştur"""
+def configure_postgresql():
+    """PostgreSQL konfigürasyonu"""
     try:
-        # PostgreSQL'e bağlan
-        conn = psycopg2.connect(
-            host=Config.POSTGRES_HOST,
-            port=Config.POSTGRES_PORT,
-            user=Config.POSTGRES_USER,
-            password=Config.POSTGRES_PASSWORD,
-            database='postgres'  # Varsayılan veritabanı
-        )
-        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        cursor = conn.cursor()
+        # PostgreSQL kullanıcısına geç
+        commands = [
+            ("sudo -u postgres psql -c \"ALTER USER postgres PASSWORD '3010726904';\"", "PostgreSQL root şifresi ayarlama"),
+            ("sudo -u postgres psql -c \"CREATE DATABASE kahin_ultima;\"", "Veritabanı oluşturma"),
+            ("sudo -u postgres psql -c \"CREATE USER laravel WITH PASSWORD 'secret';\"", "Laravel kullanıcısı oluşturma"),
+            ("sudo -u postgres psql -c \"GRANT ALL PRIVILEGES ON DATABASE kahin_ultima TO laravel;\"", "Laravel kullanıcısına yetki verme"),
+            ("sudo -u postgres psql -c \"ALTER USER laravel CREATEDB;\"", "Laravel kullanıcısına DB oluşturma yetkisi"),
+            ("sudo -u postgres psql -c \"\\l\"", "Veritabanları listesi")
+        ]
         
-        # Veritabanının var olup olmadığını kontrol et
-        cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (Config.POSTGRES_DB,))
-        exists = cursor.fetchone()
-        
-        if not exists:
-            # Veritabanını oluştur
-            cursor.execute(f"CREATE DATABASE {Config.POSTGRES_DB}")
-            print(f"✅ Veritabanı oluşturuldu: {Config.POSTGRES_DB}")
-        else:
-            print(f"✅ Veritabanı zaten mevcut: {Config.POSTGRES_DB}")
-        
-        cursor.close()
-        conn.close()
+        for command, description in commands:
+            if not run_command(command, description):
+                return False
         return True
-        
-    except psycopg2.Error as e:
-        print(f"❌ Veritabanı oluşturulamadı: {e}")
+    except Exception as e:
+        logger.error(f"PostgreSQL konfigürasyon hatası: {e}")
         return False
 
 def test_connection():
     """Veritabanı bağlantısını test et"""
     try:
-        conn = psycopg2.connect(Config.DATABASE_URL)
-        cursor = conn.cursor()
-        cursor.execute("SELECT version();")
-        version = cursor.fetchone()
-        print(f"✅ PostgreSQL bağlantısı başarılı!")
-        print(f"📊 PostgreSQL versiyonu: {version[0]}")
-        cursor.close()
+        logger.info("Veritabanı bağlantısı test ediliyor...")
+        
+        # Config'den bağlantı bilgilerini al
+        db_url = Config.DATABASE_URL
+        logger.info(f"Bağlantı URL: {db_url}")
+        
+        # SQLAlchemy ile test
+        engine = create_engine(db_url)
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT version();"))
+            version = result.fetchone()[0]
+            logger.info(f"✅ PostgreSQL bağlantısı başarılı: {version}")
+        
+        # psycopg2 ile test
+        conn = psycopg2.connect(
+            host=Config.DB_HOST,
+            port=Config.DB_PORT,
+            database=Config.DB_NAME,
+            user=Config.DB_USER,
+            password=Config.DB_PASSWORD
+        )
         conn.close()
+        logger.info("✅ psycopg2 bağlantısı başarılı")
+        
         return True
-    except psycopg2.Error as e:
-        print(f"❌ PostgreSQL bağlantısı başarısız: {e}")
+    except Exception as e:
+        logger.error(f"❌ Veritabanı bağlantı hatası: {e}")
         return False
 
-def create_env_file():
-    """Örnek .env dosyası oluştur"""
-    env_content = f"""# PostgreSQL Configuration
-POSTGRES_HOST={Config.POSTGRES_HOST}
-POSTGRES_PORT={Config.POSTGRES_PORT}
-POSTGRES_DB={Config.POSTGRES_DB}
-POSTGRES_USER={Config.POSTGRES_USER}
-POSTGRES_PASSWORD={Config.POSTGRES_PASSWORD}
-DATABASE_URL={Config.DATABASE_URL}
-
-# API Keys (Bunları kendi API anahtarlarınızla değiştirin)
-BINANCE_API_KEY=your_binance_api_key_here
-BINANCE_SECRET_KEY=your_binance_secret_key_here
-
-# Telegram
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-TELEGRAM_CHAT_ID=your_telegram_chat_id_here
-
-# Twitter API
-TWITTER_API_KEY=your_twitter_api_key_here
-TWITTER_API_SECRET=your_twitter_api_secret_here
-TWITTER_ACCESS_TOKEN=your_twitter_access_token_here
-TWITTER_ACCESS_TOKEN_SECRET=your_twitter_access_token_secret_here
-
-# Reddit API
-REDDIT_CLIENT_ID=your_reddit_client_id_here
-REDDIT_CLIENT_SECRET=your_reddit_client_secret_here
-REDDIT_USER_AGENT=KAHIN_Ultima_Bot/1.0
-
-# News API
-NEWS_API_KEY=your_news_api_key_here
-
-# Flask
-FLASK_SECRET_KEY=kahin-ultima-secret-key-2024
-FLASK_HOST=0.0.0.0
-FLASK_PORT=5000
-
-# Trading Parameters
-MIN_SIGNAL_CONFIDENCE=0.7
-MAX_COINS_TO_TRACK=100
-
-# AI Model Parameters
-LSTM_LOOKBACK_DAYS=60
-MODEL_RETRAIN_INTERVAL_HOURS=24
-
-# Whale Tracking
-WHALE_THRESHOLD_USDT=100000
-
-# Social Media
-SOCIAL_MEDIA_UPDATE_INTERVAL_MINUTES=15
-
-# News
-NEWS_UPDATE_INTERVAL_MINUTES=30
-
-# Performance Tracking
-SIGNAL_EXPIRY_HOURS=24
-MIN_PROFIT_PERCENTAGE=2.0
-
-# Logging
-LOG_LEVEL=INFO
-LOG_FILE=logs/kahin_ultima.log
-"""
-    
-    with open('.env', 'w', encoding='utf-8') as f:
-        f.write(env_content)
-    
-    print("✅ .env dosyası oluşturuldu")
-    print("📝 Lütfen .env dosyasını düzenleyerek API anahtarlarınızı ekleyin")
+def create_tables():
+    """Gerekli tabloları oluştur"""
+    try:
+        logger.info("Tablolar oluşturuluyor...")
+        engine = create_engine(Config.DATABASE_URL)
+        
+        create_table_sql = """
+        CREATE TABLE IF NOT EXISTS signals (
+            id SERIAL PRIMARY KEY,
+            symbol VARCHAR(20),
+            timeframe VARCHAR(10),
+            direction VARCHAR(10),
+            ai_score DECIMAL(5,4),
+            ta_strength DECIMAL(5,4),
+            whale_score DECIMAL(5,4),
+            social_score DECIMAL(5,4),
+            news_score DECIMAL(5,4),
+            timestamp VARCHAR(50),
+            predicted_gain DECIMAL(10,4),
+            predicted_duration VARCHAR(20),
+            entry_price DECIMAL(15,8) DEFAULT NULL,
+            exit_price DECIMAL(15,8) DEFAULT NULL,
+            result VARCHAR(20) DEFAULT NULL,
+            realized_gain DECIMAL(10,4) DEFAULT NULL,
+            duration DECIMAL(10,4) DEFAULT NULL,
+            take_profit DECIMAL(15,8) DEFAULT NULL,
+            stop_loss DECIMAL(15,8) DEFAULT NULL,
+            support_level DECIMAL(15,8) DEFAULT NULL,
+            resistance_level DECIMAL(15,8) DEFAULT NULL,
+            target_time_hours DECIMAL(10,2) DEFAULT NULL,
+            max_hold_time_hours DECIMAL(10,2) DEFAULT 24.0,
+            predicted_breakout_threshold DECIMAL(10,4) DEFAULT NULL,
+            actual_max_gain DECIMAL(10,4) DEFAULT NULL,
+            actual_max_loss DECIMAL(10,4) DEFAULT NULL,
+            breakout_achieved BOOLEAN DEFAULT FALSE,
+            breakout_time_hours DECIMAL(10,4) DEFAULT NULL,
+            predicted_breakout_time_hours DECIMAL(10,4) DEFAULT NULL,
+            risk_reward_ratio DECIMAL(10,4) DEFAULT NULL,
+            actual_risk_reward_ratio DECIMAL(10,4) DEFAULT NULL,
+            volatility_score DECIMAL(5,4) DEFAULT NULL,
+            trend_strength DECIMAL(5,4) DEFAULT NULL,
+            market_regime VARCHAR(20) DEFAULT NULL,
+            signal_quality_score DECIMAL(5,4) DEFAULT NULL,
+            success_metrics JSONB DEFAULT NULL,
+            volume_score DECIMAL(5,4) DEFAULT NULL,
+            momentum_score DECIMAL(5,4) DEFAULT NULL,
+            pattern_score DECIMAL(5,4) DEFAULT NULL,
+            order_book_imbalance DECIMAL(10,4) DEFAULT NULL,
+            top_bid_walls TEXT DEFAULT NULL,
+            top_ask_walls TEXT DEFAULT NULL,
+            whale_direction_score DECIMAL(10,4) DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+        
+        with engine.connect() as conn:
+            conn.execute(text(create_table_sql))
+            conn.commit()
+        
+        logger.info("✅ Tablolar başarıyla oluşturuldu")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Tablo oluşturma hatası: {e}")
+        return False
 
 def main():
-    """Ana kurulum fonksiyonu"""
-    print("🚀 KAHİN Ultima PostgreSQL Kurulum Scripti")
-    print("=" * 50)
+    """Ana fonksiyon"""
+    logger.info("🚀 PostgreSQL Kurulum ve Konfigürasyon Başlatılıyor...")
     
-    # PostgreSQL kurulumunu kontrol et
-    if not check_postgresql_installed():
-        if not install_postgresql():
-            return
+    # 1. PostgreSQL kurulumu
+    if not install_postgresql():
+        logger.error("PostgreSQL kurulumu başarısız!")
+        sys.exit(1)
     
-    # Veritabanını oluştur
-    if not create_database():
-        print("❌ Veritabanı oluşturulamadı. Lütfen PostgreSQL kurulumunu tamamlayın.")
-        return
+    # 2. PostgreSQL konfigürasyonu
+    if not configure_postgresql():
+        logger.error("PostgreSQL konfigürasyonu başarısız!")
+        sys.exit(1)
     
-    # Bağlantıyı test et
+    # 3. Bağlantı testi
     if not test_connection():
-        print("❌ Veritabanı bağlantısı başarısız. Lütfen ayarları kontrol edin.")
-        return
+        logger.error("Veritabanı bağlantı testi başarısız!")
+        sys.exit(1)
     
-    # .env dosyasını oluştur
-    create_env_file()
+    # 4. Tabloları oluştur
+    if not create_tables():
+        logger.error("Tablo oluşturma başarısız!")
+        sys.exit(1)
     
-    print("\n🎉 PostgreSQL kurulumu tamamlandı!")
-    print("\n📋 Sonraki adımlar:")
-    print("   1. .env dosyasını düzenleyerek API anahtarlarınızı ekleyin")
-    print("   2. Python sanal ortamınızı aktifleştirin")
-    print("   3. Gereksinimleri yükleyin: pip install -r requirements.txt")
-    print("   4. Sistemi başlatın: python main.py")
+    logger.info("🎉 PostgreSQL kurulum ve konfigürasyon tamamlandı!")
 
 if __name__ == "__main__":
     main() 

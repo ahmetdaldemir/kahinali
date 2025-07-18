@@ -31,8 +31,8 @@ class Config:
     DB_HOST = os.getenv('POSTGRES_HOST', 'localhost')
     DB_PORT = int(os.getenv('POSTGRES_PORT', 5432))
     DB_NAME = os.getenv('POSTGRES_DB', 'kahin_ultima')
-    DB_USER = os.getenv('POSTGRES_USER', 'postgres')
-    DB_PASSWORD = os.getenv('POSTGRES_PASSWORD', '3010726904')
+    DB_USER = os.getenv('POSTGRES_USER', 'laravel')
+    DB_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'secret')
     
     # Database URL - PostgreSQL 15 kullan, password'ü URL encode et
     DATABASE_URL = os.getenv('DATABASE_URL', 

@@ -77,32 +77,43 @@ pip install -r requirements.txt
 log "Gerekli dizinler oluşturuluyor..."
 mkdir -p logs signals data models
 
-# 10. Systemd service dosyalarını kopyala
+# 10. Otomatik veritabanı migration'ı çalıştır
+log "Veritabanı migration başlatılıyor..."
+python3 database_migration.py
+
+# Migration başarısızsa tekrar dene
+if [ $? -ne 0 ]; then
+    warning "Migration başarısız, tekrar deneniyor..."
+    sleep 5
+    python3 database_migration.py
+fi
+
+# 11. Systemd service dosyalarını kopyala
 log "Systemd service dosyaları kopyalanıyor..."
 cp kahinali.service /etc/systemd/system/
 cp kahinali-web.service /etc/systemd/system/
 
-# 11. Systemd'yi yeniden yükle
+# 12. Systemd'yi yeniden yükle
 log "Systemd yeniden yükleniyor..."
 systemctl daemon-reload
 
-# 12. Servisleri etkinleştir
+# 13. Servisleri etkinleştir
 log "Servisler etkinleştiriliyor..."
 systemctl enable kahinali.service
 systemctl enable kahinali-web.service
 
-# 13. Firewall ayarları
+# 14. Firewall ayarları
 log "Firewall ayarları yapılıyor..."
 ufw allow 5000
 ufw allow 22
 ufw --force enable
 
-# 14. Servisleri başlat
+# 15. Servisleri başlat
 log "Servisler başlatılıyor..."
 systemctl start kahinali.service
 systemctl start kahinali-web.service
 
-# 15. Servis durumlarını kontrol et
+# 16. Servis durumlarını kontrol et
 log "Servis durumları kontrol ediliyor..."
 echo "=== Kahinali Ana Sistem Durumu ==="
 systemctl status kahinali.service --no-pager
@@ -110,7 +121,7 @@ systemctl status kahinali.service --no-pager
 echo "=== Kahinali Web Dashboard Durumu ==="
 systemctl status kahinali-web.service --no-pager
 
-# 16. Log dosyalarını kontrol et
+# 17. Log dosyalarını kontrol et
 log "Log dosyaları kontrol ediliyor..."
 if [ -f "logs/kahin_ultima.log" ]; then
     echo "=== Son 10 log satırı ==="
@@ -126,13 +137,13 @@ else
     warning "Web dashboard log dosyası bulunamadı"
 fi
 
-# 17. Veritabanı bağlantısını test et
+# 18. Veritabanı bağlantısını test et
 log "Veritabanı bağlantısı test ediliyor..."
 cd /var/www/html/kahin
 source venv/bin/activate
 python3 setup_postgresql.py
 
-# 18. Web dashboard'u test et
+# 19. Web dashboard'u test et
 log "Web dashboard test ediliyor..."
 curl -s http://localhost:5000/api/signals > /dev/null && log "✅ Web dashboard erişilebilir" || error "❌ Web dashboard erişilemiyor"
 

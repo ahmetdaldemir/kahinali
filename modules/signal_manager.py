@@ -24,7 +24,16 @@ class SignalManager:
         self._create_tables()
 
     def _create_tables(self):
-        """PostgreSQL tablolarını oluştur"""
+        """PostgreSQL tablolarını oluştur - Gelişmiş hata yönetimi ile"""
+        try:
+            # Önce bağlantıyı test et
+            with self.engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                self.logger.info("✅ Veritabanı bağlantısı başarılı")
+        except Exception as e:
+            self.logger.error(f"❌ Veritabanı bağlantı hatası: {e}")
+            return False
+        
         try:
             # PostgreSQL için SERIAL kullan
             create_table_sql = """
@@ -79,9 +88,30 @@ class SignalManager:
             with self.engine.connect() as conn:
                 conn.execute(text(create_table_sql))
                 conn.commit()
-            self.logger.info("PostgreSQL veritabanı tabloları oluşturuldu.")
+            
+            # Tablo oluşturuldu mu kontrol et
+            with self.engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'signals'"))
+                table_exists = result.fetchone()[0] > 0
+                
+                if table_exists:
+                    self.logger.info("✅ PostgreSQL veritabanı tabloları başarıyla oluşturuldu.")
+                    
+                    # Tablo yapısını kontrol et
+                    result = conn.execute(text("SELECT COUNT(*) FROM signals"))
+                    row_count = result.fetchone()[0]
+                    self.logger.info(f"📊 Signals tablosu: {row_count} kayıt mevcut")
+                    
+                    return True
+                else:
+                    self.logger.error("❌ Tablo oluşturulamadı!")
+                    return False
+                    
         except Exception as e:
-            self.logger.error(f"Tablo oluşturulurken hata: {e}")
+            self.logger.error(f"❌ Tablo oluşturulurken hata: {e}")
+            import traceback
+            self.logger.error(f"Hata detayı: {traceback.format_exc()}")
+            return False
 
     def save_signal_json(self, signal):
         try:

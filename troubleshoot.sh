@@ -86,6 +86,16 @@ else
     error "setup_postgresql.py bulunamadı!"
 fi
 
+# 7.5. Veritabanı migration kontrolü
+echo ""
+echo "=== 7.5. VERİTABANI MIGRATION ==="
+log "Veritabanı migration kontrol ediliyor..."
+if [ -f "database_migration.py" ]; then
+    python3 database_migration.py
+else
+    error "database_migration.py bulunamadı!"
+fi
+
 # 8. Log dosyaları kontrolü
 echo ""
 echo "=== 8. LOG DOSYALARI ==="

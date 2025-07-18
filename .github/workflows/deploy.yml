@@ -60,6 +60,17 @@ jobs:
           # Gerekli dizinleri oluştur
           mkdir -p logs signals data models
           
+          # Otomatik veritabanı migration'ı çalıştır
+          echo "🚀 Veritabanı migration başlatılıyor..."
+          python3 database_migration.py
+          
+          # Migration başarısızsa tekrar dene
+          if [ $? -ne 0 ]; then
+            echo "❌ Migration başarısız, tekrar deneniyor..."
+            sleep 5
+            python3 database_migration.py
+          fi
+          
           # Systemd service dosyalarını kopyala
           cp kahinali.service /etc/systemd/system/
           cp kahinali-web.service /etc/systemd/system/
@@ -81,5 +92,10 @@ jobs:
           ufw allow 5000
           ufw allow 22
           ufw --force enable
+          
+          # Veritabanı tablolarını kontrol et
+          echo "📊 Veritabanı tabloları kontrol ediliyor..."
+          sudo -u postgres psql -d kahin_ultima -c "\dt"
+          sudo -u postgres psql -d kahin_ultima -c "SELECT COUNT(*) FROM signals;"
           
           echo "Deployment completed successfully!" 

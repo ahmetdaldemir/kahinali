@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import json
 
 # Veritabanı bağlantısı
-DATABASE_URL = 'postgresql://postgres:3010726904@localhost:5432/kahin_ultima'
+DATABASE_URL = 'postgresql://laravel:secret@localhost:5432/kahin_ultima'
 engine = sqlalchemy.create_engine(DATABASE_URL)
 
 def check_signal_production():

@@ -85,13 +85,16 @@ jobs:
           source venv/bin/activate
           python3 database_migration.py
           
-          # Migration başarısızsa tekrar dene
+          # Migration başarısızsa zorla tablo oluştur
           if [ $? -ne 0 ]; then
-            echo "❌ Migration başarısız, tekrar deneniyor..."
-            sleep 5
-            source venv/bin/activate
-            python3 database_migration.py
+            echo "❌ Migration başarısız, zorla tablo oluşturma deneniyor..."
+            python3 force_create_tables.py
           fi
+          
+          # Manuel tablo oluşturma (ek güvenlik için)
+          echo "🔄 Manuel tablo oluşturma çalıştırılıyor..."
+          chmod +x manual_create_tables.sh
+          ./manual_create_tables.sh
           
           # Systemd service dosyalarını kopyala
           cp kahinali.service /etc/systemd/system/

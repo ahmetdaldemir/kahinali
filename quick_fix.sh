@@ -64,22 +64,33 @@ log "Veritabanı migration başlatılıyor..."
 source venv/bin/activate
 python3 database_migration.py
 
-# 7. Servisleri yeniden başlat
+# Migration başarısızsa zorla tablo oluştur
+if [ $? -ne 0 ]; then
+    warning "Migration başarısız, zorla tablo oluşturma deneniyor..."
+    python3 force_create_tables.py
+fi
+
+# 7. Manuel tablo oluşturma (ek güvenlik için)
+log "Manuel tablo oluşturma çalıştırılıyor..."
+chmod +x manual_create_tables.sh
+./manual_create_tables.sh
+
+# 8. Servisleri yeniden başlat
 log "Servisler yeniden başlatılıyor..."
 systemctl restart kahinali.service
 systemctl restart kahinali-web.service
 
-# 8. Servis durumlarını kontrol et
+# 9. Servis durumlarını kontrol et
 log "Servis durumları kontrol ediliyor..."
 systemctl status kahinali.service --no-pager
 systemctl status kahinali-web.service --no-pager
 
-# 9. Veritabanı tablolarını kontrol et
+# 10. Veritabanı tablolarını kontrol et
 log "Veritabanı tabloları kontrol ediliyor..."
 sudo -u postgres psql -d kahin_ultima -c "\dt"
 sudo -u postgres psql -d kahin_ultima -c "SELECT COUNT(*) FROM signals;"
 
-# 10. Web dashboard'u test et
+# 11. Web dashboard'u test et
 log "Web dashboard test ediliyor..."
 sleep 10
 curl -s http://localhost:5000/api/signals > /dev/null && log "✅ Web dashboard erişilebilir" || error "❌ Web dashboard erişilemiyor"

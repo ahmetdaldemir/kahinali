@@ -5,8 +5,9 @@ requests>=2.25.0
 python-binance>=1.0.0
 ccxt>=2.0.0
 
-# Technical Analysis
-ta-lib>=0.4.0
+# Technical Analysis - TA-Lib alternatifi
+# ta-lib>=0.4.0  # Bu satırı yoruma al
+ta>=0.10.2  # TA-Lib alternatifi
 scikit-learn>=1.0.0
 scipy>=1.7.0
 

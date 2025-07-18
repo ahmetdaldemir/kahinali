@@ -22,16 +22,31 @@ jobs:
           apt update -y
           apt upgrade -y
           
-          # Python 3.11 kurulumu
+          # Python 3.11 ve development tools kurulumu
           apt install -y python3.11 python3.11-venv python3.11-pip python3.11-dev
+          apt install -y build-essential gcc g++ make
+          apt install -y python3-dev python3-pip
           
           # Git kurulumu
           apt install -y git
           
-          # PostgreSQL kurulumu
+          # PostgreSQL kurulumu ve konfigürasyonu
           apt install -y postgresql postgresql-contrib
           systemctl start postgresql
           systemctl enable postgresql
+          
+          # PostgreSQL kullanıcısını oluştur
+          sudo -u postgres createuser --interactive --pwprompt laravel || true
+          sudo -u postgres psql -c "ALTER USER laravel PASSWORD 'secret';"
+          
+          # TA-Lib kurulumu
+          cd /tmp
+          wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
+          tar -xzf ta-lib-0.4.0-src.tar.gz
+          cd ta-lib/
+          ./configure --prefix=/usr
+          make
+          make install
           
           # Proje dizini oluşturma
           mkdir -p /var/www/html
@@ -48,10 +63,15 @@ jobs:
           
           # Bağımlılıkları yükle
           pip install --upgrade pip
+          pip install wheel setuptools
+          
+          # TA-Lib'i önce kur
+          pip install TA-Lib
+          
+          # Diğer bağımlılıkları yükle
           pip install -r requirements.txt
           
           # PostgreSQL konfigürasyonu
-          sudo -u postgres psql -c "ALTER USER postgres PASSWORD '3010726904';"
           sudo -u postgres psql -c "CREATE DATABASE kahin_ultima;"
           sudo -u postgres psql -c "CREATE USER laravel WITH PASSWORD 'secret';"
           sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE kahin_ultima TO laravel;"
@@ -62,12 +82,14 @@ jobs:
           
           # Otomatik veritabanı migration'ı çalıştır
           echo "🚀 Veritabanı migration başlatılıyor..."
+          source venv/bin/activate
           python3 database_migration.py
           
           # Migration başarısızsa tekrar dene
           if [ $? -ne 0 ]; then
             echo "❌ Migration başarısız, tekrar deneniyor..."
             sleep 5
+            source venv/bin/activate
             python3 database_migration.py
           fi
           

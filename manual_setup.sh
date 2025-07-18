@@ -31,9 +31,11 @@ log "Sistem güncelleniyor..."
 apt update -y
 apt upgrade -y
 
-# 2. Python 3.11 kurulumu
-log "Python 3.11 kuruluyor..."
+# 2. Python 3.11 ve development tools kurulumu
+log "Python 3.11 ve development tools kuruluyor..."
 apt install -y python3.11 python3.11-venv python3.11-pip python3.11-dev
+apt install -y build-essential gcc g++ make
+apt install -y python3-dev python3-pip
 
 # 3. Git kurulumu
 log "Git kuruluyor..."
@@ -47,13 +49,24 @@ systemctl enable postgresql
 
 # 5. PostgreSQL konfigürasyonu
 log "PostgreSQL konfigürasyonu yapılıyor..."
+sudo -u postgres createuser --interactive --pwprompt postgres || true
 sudo -u postgres psql -c "ALTER USER postgres PASSWORD '3010726904';"
 sudo -u postgres psql -c "CREATE DATABASE kahin_ultima;"
 sudo -u postgres psql -c "CREATE USER laravel WITH PASSWORD 'secret';"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE kahin_ultima TO laravel;"
 sudo -u postgres psql -c "ALTER USER laravel CREATEDB;"
 
-# 6. Proje dizini oluşturma
+# 6. TA-Lib kurulumu
+log "TA-Lib kuruluyor..."
+cd /tmp
+wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
+tar -xzf ta-lib-0.4.0-src.tar.gz
+cd ta-lib/
+./configure --prefix=/usr
+make
+make install
+
+# 7. Proje dizini oluşturma
 log "Proje dizini oluşturuluyor..."
 mkdir -p /var/www/html
 cd /var/www/html
@@ -63,57 +76,67 @@ rm -rf kahin
 git clone https://github.com/ahmetdaldemir/kahinali.git kahin
 cd kahin
 
-# 7. Virtual environment oluştur
+# 8. Virtual environment oluştur
 log "Virtual environment oluşturuluyor..."
 python3.11 -m venv venv
 source venv/bin/activate
 
-# 8. Bağımlılıkları yükle
+# 9. Python bağımlılıkları yükleniyor
 log "Python bağımlılıkları yükleniyor..."
 pip install --upgrade pip
+pip install wheel setuptools
+
+# TA-Lib'i önce kur
+log "TA-Lib kuruluyor..."
+pip install TA-Lib
+
+# Diğer bağımlılıkları yükle
+log "Diğer bağımlılıklar yükleniyor..."
 pip install -r requirements.txt
 
-# 9. Gerekli dizinleri oluştur
+# 10. Gerekli dizinleri oluştur
 log "Gerekli dizinler oluşturuluyor..."
 mkdir -p logs signals data models
 
-# 10. Otomatik veritabanı migration'ı çalıştır
+# 11. Otomatik veritabanı migration'ı çalıştır
 log "Veritabanı migration başlatılıyor..."
+source venv/bin/activate
 python3 database_migration.py
 
 # Migration başarısızsa tekrar dene
 if [ $? -ne 0 ]; then
     warning "Migration başarısız, tekrar deneniyor..."
     sleep 5
+    source venv/bin/activate
     python3 database_migration.py
 fi
 
-# 11. Systemd service dosyalarını kopyala
+# 12. Systemd service dosyalarını kopyala
 log "Systemd service dosyaları kopyalanıyor..."
 cp kahinali.service /etc/systemd/system/
 cp kahinali-web.service /etc/systemd/system/
 
-# 12. Systemd'yi yeniden yükle
+# 13. Systemd'yi yeniden yükle
 log "Systemd yeniden yükleniyor..."
 systemctl daemon-reload
 
-# 13. Servisleri etkinleştir
+# 14. Servisleri etkinleştir
 log "Servisler etkinleştiriliyor..."
 systemctl enable kahinali.service
 systemctl enable kahinali-web.service
 
-# 14. Firewall ayarları
+# 15. Firewall ayarları
 log "Firewall ayarları yapılıyor..."
 ufw allow 5000
 ufw allow 22
 ufw --force enable
 
-# 15. Servisleri başlat
+# 16. Servisleri başlat
 log "Servisler başlatılıyor..."
 systemctl start kahinali.service
 systemctl start kahinali-web.service
 
-# 16. Servis durumlarını kontrol et
+# 17. Servis durumlarını kontrol et
 log "Servis durumları kontrol ediliyor..."
 echo "=== Kahinali Ana Sistem Durumu ==="
 systemctl status kahinali.service --no-pager
@@ -121,7 +144,7 @@ systemctl status kahinali.service --no-pager
 echo "=== Kahinali Web Dashboard Durumu ==="
 systemctl status kahinali-web.service --no-pager
 
-# 17. Log dosyalarını kontrol et
+# 18. Log dosyalarını kontrol et
 log "Log dosyaları kontrol ediliyor..."
 if [ -f "logs/kahin_ultima.log" ]; then
     echo "=== Son 10 log satırı ==="
@@ -137,15 +160,20 @@ else
     warning "Web dashboard log dosyası bulunamadı"
 fi
 
-# 18. Veritabanı bağlantısını test et
+# 19. Veritabanı bağlantısını test et
 log "Veritabanı bağlantısı test ediliyor..."
 cd /var/www/html/kahin
 source venv/bin/activate
 python3 setup_postgresql.py
 
-# 19. Web dashboard'u test et
+# 20. Web dashboard'u test et
 log "Web dashboard test ediliyor..."
 curl -s http://localhost:5000/api/signals > /dev/null && log "✅ Web dashboard erişilebilir" || error "❌ Web dashboard erişilemiyor"
+
+# 21. Veritabanı tablolarını kontrol et
+log "Veritabanı tabloları kontrol ediliyor..."
+sudo -u postgres psql -d kahin_ultima -c "\dt"
+sudo -u postgres psql -d kahin_ultima -c "SELECT COUNT(*) FROM signals;"
 
 echo ""
 log "🎉 Manuel kurulum tamamlandı!"
